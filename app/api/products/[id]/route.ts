@@ -1,8 +1,14 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+interface RouteContext {
+  params: Promise<{ id: string }>
+}
+
+// ✅ PATCH — update product details
+export async function PATCH(request: Request, context: RouteContext) {
   try {
+    const { id } = await context.params // unwrap the promise
     const supabase = await createClient()
     const body = await request.json()
 
@@ -14,27 +20,35 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         purchase_price: body.purchase_price,
         stock: body.stock,
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
+      .maybeSingle() // ✅ safer than select()[0]
 
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
 
-    return NextResponse.json(data[0])
+    return NextResponse.json(data)
   } catch (error) {
+    console.error("Error updating product:", error)
     return NextResponse.json({ error: "Failed to update product" }, { status: 500 })
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+// ✅ DELETE — remove a product
+export async function DELETE(request: Request, context: RouteContext) {
   try {
+    const { id } = await context.params // unwrap promise
     const supabase = await createClient()
 
-    const { error } = await supabase.from("products").delete().eq("id", params.id)
+    const { error } = await supabase.from("products").delete().eq("id", id)
 
     if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error("Error deleting product:", error)
     return NextResponse.json({ error: "Failed to delete product" }, { status: 500 })
   }
 }

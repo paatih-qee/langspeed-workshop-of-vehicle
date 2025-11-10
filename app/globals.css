@@ -80,3 +80,27 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Sembunyikan elemen hanya di layar biasa */
+.print-only {
+  display: none;
+}
+
+/* Tampilkan hanya ketika mencetak */
+@media print {
+  .print-only {
+    display: block !important;
+  }
+
+  /* Opsional: hilangkan elemen lain yang tidak perlu dicetak */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Tambahan opsional untuk styling hasil cetak */
+  body {
+    background: white;
+    color: black;
+  }
+}
+

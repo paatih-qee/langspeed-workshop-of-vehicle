@@ -225,16 +225,15 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" className="w-full bg-transparent">
-                  Pesanan Baru
-                </Button>
+                <Button variant="outline" className="w-full bg-transparent">Buat Pesanan Baru</Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Buat Pesanan Baru</DialogTitle>
                   <DialogDescription>Masukkan detail pesanan dan pilih item</DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleCreateOrder} className="space-y-4 max-h-96 overflow-y-auto">
+
+                <form onSubmit={handleCreateOrder} className="space-y-4 max-h-[80vh] overflow-y-auto">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pelanggan</label>
@@ -284,7 +283,7 @@ export default function DashboardPage() {
                   <div className="border-t pt-4">
                     <h3 className="font-semibold mb-3">Tambahkan Item</h3>
                     <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className={`grid ${selectedType === "service" ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Tipe</label>
                           <select
@@ -309,12 +308,7 @@ export default function DashboardPage() {
                             <option value="">Pilih item</option>
                             {selectedType === "product"
                               ? products.map((product) => (
-                                  <option
-                                    key={product.id}
-                                    value={product.id}
-                                    disabled={product.stock === 0}
-                                    className={product.stock === 0 ? "text-gray-400" : ""}
-                                  >
+                                  <option key={product.id} value={product.id} disabled={product.stock === 0}>
                                     {product.name} (Stok: {product.stock})
                                   </option>
                                 ))
@@ -325,16 +319,17 @@ export default function DashboardPage() {
                                 ))}
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Kuantitas</label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={quantity}
-                            onChange={(e) => setQuantity(e.target.value)}
-                            className="w-full"
-                          />
-                        </div>
+                        {selectedType === "product" && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Kuantitas</label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={quantity}
+                              onChange={(e) => setQuantity(e.target.value)}
+                            />
+                          </div>
+                        )}
                       </div>
                       <Button type="button" onClick={handleAddItem} variant="secondary" className="w-full">
                         Tambahkan Item

@@ -34,10 +34,11 @@ export default function OrdersPage() {
   const { orders, mutate: mutateOrders } = useOrders()
   const { products } = useProducts()
   const { services } = useServices()
-  const [isOpen, setIsOpen] = useState(false)
-  const [items, setItems] = useState<OrderItem[]>([])
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
-  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedType, setSelectedType] = useState<"product" | "service">("product")
+  const [selectedItem, setSelectedItem] = useState("")
+  const [quantity, setQuantity] = useState("1")
+  const [items, setItems] = useState<any[]>([])
   const [formData, setFormData] = useState({
     customerName: "",
     customerPhone: "",
@@ -45,17 +46,53 @@ export default function OrdersPage() {
     plateNumber: "",
     complaint: "",
   })
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
-  const handleAddItem = (item: any, type: "product" | "service") => {
+  const handleAddItem = () => {
+    if (!selectedItem || !quantity) {
+      toast.error("Pilih item dan masukkan kuantitas")
+      return
+    }
+
+    const qty = Number.parseInt(quantity)
+    if (qty <= 0) {
+      toast.error("Kuantitas harus lebih dari 0")
+      return
+    }
+
+    let item: any
+    if (selectedType === "product") {
+      item = products.find((p) => p.id === selectedItem)
+      if (!item || item.stock === 0) {
+        toast.error("Produk tidak tersedia")
+        return
+      }
+      if (qty > item.stock) {
+        toast.error(`Stok tidak cukup. Stok tersedia: ${item.stock}`)
+        return
+      }
+    } else {
+      item = services.find((s) => s.id === selectedItem)
+    }
+
+    if (!item) {
+      toast.error("Item tidak ditemukan")
+      return
+    }
+
     const newItem: OrderItem = {
-      itemId: item.product_id || item.service_id,
+      itemId: item.id,
       itemName: item.name,
-      itemType: type,
-      quantity: 1,
+      itemType: selectedType,
+      quantity: qty,
       price: item.price,
       purchase_price: item.purchase_price || 0,
     }
+
     setItems([...items, newItem])
+    setSelectedItem("")
+    setQuantity("1")
     toast.success(`${item.name} ditambahkan ke pesanan`)
   }
 
@@ -92,7 +129,7 @@ export default function OrdersPage() {
         complaint: "",
       })
       setItems([])
-      setIsOpen(false)
+      setIsModalOpen(false)
       mutateOrders()
     } catch (error) {
       toast.error("Gagal membuat pesanan")
@@ -114,44 +151,53 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-bold text-gray-900">Pesanan</h1>
           <p className="text-gray-600 mt-2">Kelola pesanan servis dan penjualan</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
-            <Button>Pesanan Baru</Button>
+            <Button>
+              Pesanan Baru
+            </Button>
           </DialogTrigger>
+
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Buat Pesanan Baru</DialogTitle>
               <DialogDescription>Masukkan detail pesanan dan pilih item</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateOrder} className="space-y-4 max-h-96 overflow-y-auto">
+
+            <form onSubmit={handleCreateOrder} className="space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* === Informasi Pelanggan === */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pelanggan</label>
                   <Input
+                    id="customerName"
                     value={formData.customerName}
                     onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">No. Telepon</label>
+                  <label htmlFor="customerPhone">No. Telepon</label>
                   <Input
+                    id="customerPhone"
                     value={formData.customerPhone}
                     onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Kendaraan</label>
+                  <label htmlFor="vehicleType">Tipe Kendaraan</label>
                   <Input
+                    id="vehicleType"
                     value={formData.vehicleType}
                     onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Plat Nomor</label>
+                  <label htmlFor="plateNumber">Plat Nomor</label>
                   <Input
+                    id="plateNumber"
                     value={formData.plateNumber}
                     onChange={(e) => setFormData({ ...formData, plateNumber: e.target.value })}
                     required
@@ -159,75 +205,134 @@ export default function OrdersPage() {
                 </div>
               </div>
 
+              {/* === Keluhan === */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Keluhan</label>
                 <textarea
+                  id="complaint"
                   value={formData.complaint}
                   onChange={(e) => setFormData({ ...formData, complaint: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows={3}
                   required
                 />
               </div>
 
-              <div>
-                <h3 className="font-semibold mb-2">Produk</h3>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {products.map((product) => (
-                    <button
-                      key={product.id}
-                      type="button"
-                      onClick={() => handleAddItem(product, "product")}
-                      className="w-full text-left p-2 border rounded hover:bg-blue-50"
+              {/* === Tambahkan Item === */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3">Tambahkan Item</h3>
+
+                <div className={`grid ${selectedType === "service" ? "grid-cols-2" : "grid-cols-3"} gap-2`}>
+                  {/* Pilih tipe item */}
+                  <div>
+                    <label>Tipe</label>
+                    <select
+                      value={selectedType}
+                      onChange={(e) => {
+                        setSelectedType(e.target.value as "product" | "service")
+                        setSelectedItem("")
+                        setQuantity("1") // reset quantity tiap ganti tipe
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     >
-                      {product.name} - Rp {product.price.toLocaleString("id-ID")} (Stok: {product.stock})
-                    </button>
-                  ))}
+                      <option value="product">Produk</option>
+                      <option value="service">Jasa</option>
+                    </select>
+                  </div>
+
+                  {/* Pilih item */}
+                  <div>
+                    <label>Item</label>
+                    <select
+                      value={selectedItem}
+                      onChange={(e) => setSelectedItem(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Pilih item</option>
+                      {selectedType === "product"
+                        ? products.map((product) => (
+                            <option
+                              key={product.id}
+                              value={product.id}
+                              disabled={product.stock === 0}
+                              className={product.stock === 0 ? "text-gray-400" : ""}
+                            >
+                              {product.name} (Stok: {product.stock})
+                            </option>
+                          ))
+                        : services.map((service) => (
+                            <option key={service.id} value={service.id}>
+                              {service.name}
+                            </option>
+                          ))}
+                    </select>
+                  </div>
+
+                  {/* Input kuantitas hanya jika tipe = product */}
+                  {selectedType === "product" && (
+                    <div>
+                      <label>Kuantitas</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
                 </div>
+
+                <Button
+                  type="button"
+                  onClick={handleAddItem}
+                  variant="secondary"
+                  className="mt-3 w-full"
+                  disabled={!selectedItem}
+                >
+                  Tambahkan Item
+                </Button>
               </div>
 
-              <div>
-                <h3 className="font-semibold mb-2">Jasa</h3>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {services.map((service) => (
-                    <button
-                      key={service.id}
-                      type="button"
-                      onClick={() => handleAddItem(service, "service")}
-                      className="w-full text-left p-2 border rounded hover:bg-blue-50"
-                    >
-                      {service.name} - Rp {service.price.toLocaleString("id-ID")}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+              {/* === Daftar Item === */}
               <div>
                 <h3 className="font-semibold mb-2">Item Pesanan ({items.length})</h3>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {items.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span>
-                        {item.itemName} x{item.quantity} = Rp {(item.price * item.quantity).toLocaleString("id-ID")}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(index)}
-                        className="text-red-600 hover:text-red-800"
+                {items.length > 0 ? (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {items.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center p-2 bg-gray-50 rounded border"
                       >
-                        Hapus
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                        <span>
+                          {item.itemName}{" "}
+                          {item.itemType === "product" && (
+                            <>x{item.quantity}</>
+                          )}{" "}
+                          = Rp {(item.price * item.quantity).toLocaleString("id-ID")}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveItem(index)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">Belum ada item ditambahkan</p>
+                )}
               </div>
 
+              {/* === Submit Button === */}
               <Button type="submit" className="w-full">
                 Buat Pesanan
               </Button>
             </form>
           </DialogContent>
         </Dialog>
+
       </div>
 
       <Card>
